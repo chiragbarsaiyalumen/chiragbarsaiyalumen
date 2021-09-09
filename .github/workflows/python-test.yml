@@ -1,4 +1,4 @@
-name: Build and Deploy to Cloud Run
+name: Build and Deploy to Cloud Run and GKE cluster
 
 
 on:
@@ -10,10 +10,12 @@ env:
   PROJECT_ID: ${{ secrets.RUN_PROJECT }}
   RUN_REGION: us-central1
   SERVICE_NAME: demo-elanco
+  GKE_CLUSTER: k8s-basic
+  GKE_ZONE: us-central1-c
 
 jobs:
   setup-build-deploy:
-    name: Setup, Build, and Deploy
+    name: Setup, Build,Publish and Deploy
     runs-on: ubuntu-latest
 
     steps:
@@ -26,6 +28,8 @@ jobs:
         version: '290.0.1'
         service_account_key: ${{ secrets.RUN_SA_KEY }}
         project_id: ${{ secrets.RUN_PROJECT }}
+        cluster_name: ${{ env.GKE_CLUSTER }}
+        location: ${{ env.GKE_ZONE }}
 
     # Build and push image to Google Container Registry
     - name: Build
@@ -34,7 +38,7 @@ jobs:
           --quiet \
           --tag "gcr.io/$PROJECT_ID/$SERVICE_NAME:$GITHUB_SHA"
     # Deploy image to Cloud Run
-    - name: Deploy
+    - name: Publish
       run: |-
         gcloud run deploy "$SERVICE_NAME" \
           --quiet \
@@ -42,3 +46,15 @@ jobs:
           --image "gcr.io/$PROJECT_ID/$SERVICE_NAME:$GITHUB_SHA" \
           --platform "managed" \
           --allow-unauthenticated
+    # Set up kustomize
+    - name: Set up Kustomize
+      run: |-
+        curl -sfLo kustomize https://github.com/kubernetes-sigs/kustomize/releases/download/v3.1.0/kustomize_3.1.0_linux_amd64
+        chmod u+x ./kustomize
+    # Deploy the Docker image to the GKE cluster
+    - name: Deploy
+      run: |-
+        ./kustomize edit set image gcr.io/PROJECT_ID/SERVICE_NAME:TAG=gcr.io/$PROJECT_ID/$SERVICE_NAME:$GITHUB_SHA
+        ./kustomize build . | kubectl apply -f -
+        kubectl rollout status deployment/$DEPLOYMENT_NAME
+        kubectl get services -o wide
