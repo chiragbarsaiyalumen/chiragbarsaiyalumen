@@ -1,2 +1,0 @@
-# elanco-demolab
-elanco-demolab
