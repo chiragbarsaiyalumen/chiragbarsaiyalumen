@@ -49,7 +49,7 @@ jobs:
     - name: "gcr.io/cloud-builders/gke-deploy"
       run: |-
         gcloud run deploy "$SERVICE_NAME" \
-            --cluster-location us-central1-a \
+            --region "$RUN_REGION" \
             --image "gcr.io/$PROJECT_ID/$SERVICE_NAME:$GITHUB_SHA" \
             --platform gke --connectivity external \
             --cluster k8s-basic
