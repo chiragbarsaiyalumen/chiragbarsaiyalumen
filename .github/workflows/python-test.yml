@@ -31,25 +31,14 @@ jobs:
         location: ${{ env.GKE_ZONE }}
 
     # Build and push image to Google Container Registry
-    - name: Build
-      run: |-
-        gcloud builds submit \
-          --quiet \
-          --tag "gcr.io/$PROJECT_ID/$SERVICE_NAME:$GITHUB_SHA"
-    # Deploy image to Cloud Run
-    - name: Publish
-      run: |-
-        gcloud run deploy "$SERVICE_NAME" \
-          --quiet \
-          --region "$RUN_REGION" \
-          --image "gcr.io/$PROJECT_ID/$SERVICE_NAME:$GITHUB_SHA" \
-          --platform "managed" \
-          --allow-unauthenticated
-    # Deploy the Docker image to the GKE cluster
-    - name: "gcr.io/cloud-builders/gke-deploy"
-      run: |-
-        gcloud run deploy "$SERVICE_NAME" \
-            --region "$RUN_REGION" \
-            --image "gcr.io/$PROJECT_ID/$SERVICE_NAME:$GITHUB_SHA" \
-            --platform gke --connectivity external \
-            --cluster k8s-basic
+    - uses: actions/docker-build-push-gcr-update-gke-deployment-action@v1.4
+      with:
+        service_account: ${{ secrests.RUN_SA_KEY}} 
+        zone: 'us-central1-c'
+        project_id: ${{ secrets.RUN_PROJECT }}
+        registry: 'gcr.io'
+        image_name: "gcr.io/$PROJECT_ID/$SERVICE_NAME:$GITHUB_SHA"
+        cluster: ${{ env.GKE_CLUSTER }}
+        namespace: 'default'
+        deployment: 'front-end-dep'
+        container: 'front-end'
