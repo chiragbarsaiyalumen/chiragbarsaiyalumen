@@ -1,4 +1,5 @@
-name: Build and Deploy to Cloud Run and GKE cluster
+name: Build and Deploy to Cloud Run
+
 
 on:
   push:
@@ -9,12 +10,10 @@ env:
   PROJECT_ID: ${{ secrets.RUN_PROJECT }}
   RUN_REGION: us-central1
   SERVICE_NAME: demo-elanco
-  GKE_CLUSTER: k8s-basic
-  GKE_ZONE: us-central1-c
 
 jobs:
   setup-build-deploy:
-    name: Setup, Build,Publish and Deploy
+    name: Setup, Build, and Deploy
     runs-on: ubuntu-latest
 
     steps:
@@ -27,18 +26,19 @@ jobs:
         version: '290.0.1'
         service_account_key: ${{ secrets.RUN_SA_KEY }}
         project_id: ${{ secrets.RUN_PROJECT }}
-        cluster_name: ${{ env.GKE_CLUSTER }}
-        location: ${{ env.GKE_ZONE }}
 
     # Build and push image to Google Container Registry
-    - uses: actions/docker-build-push-gcr-update-gke-deployment-action@v1.4
-      with:
-        service_account: ${{ secrests.RUN_SA_KEY}} 
-        zone: 'us-central1-c'
-        project_id: ${{ secrets.RUN_PROJECT }}
-        registry: 'gcr.io'
-        image_name: "gcr.io/$PROJECT_ID/$SERVICE_NAME:$GITHUB_SHA"
-        cluster: ${{ env.GKE_CLUSTER }}
-        namespace: 'default'
-        deployment: 'front-end-dep'
-        container: 'front-end'
+    - name: Build
+      run: |-
+        gcloud builds submit \
+          --quiet \
+          --tag "gcr.io/$PROJECT_ID/$SERVICE_NAME:$GITHUB_SHA"
+    # Deploy image to Cloud Run
+    - name: Deploy
+      run: |-
+        gcloud run deploy "$SERVICE_NAME" \
+          --quiet \
+          --region "$RUN_REGION" \
+          --image "gcr.io/$PROJECT_ID/$SERVICE_NAME:$GITHUB_SHA" \
+          --platform "managed" \
+          --allow-unauthenticated
